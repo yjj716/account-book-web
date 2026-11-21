@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>我的帐本</title>
+    <style>
+        body{
+            font-family: system-ui,sans-serif;margin: 24px;
+        }
+        table{
+            border-collapse: collapse;width: 100%;max-width: 720px;
+        }
+        td,th{
+            border: 1px solid #ccc;padding: 8px 12px;text-align: left;
+        }
+        th { background: #f2f2f2; }
+
+        .out { color: #c0392b; }
+        .in  { color: #1d9e75; }
+    </style>
+</head>
+<body>
+<h1>我的帐本</h1>
+<button id="logout">退出登录</button>
+<p id="tip">加载中...</p>
+<table id="tbl" hidden="">
+    <thead>
+    <tr>
+        <th>日期</th>
+        <th>分类</th>
+        <th>金额</th>
+        <th>备注</th>
+    </tr>
+    </thead>
+    <tbody id="list"></tbody>
+</table>
+<script>
+    var token = localStorage.getItem("token");
+    if (!token) {
+        location.href = "/login.html";
+    }
+
+    document.getElementById("logout").addEventListener("click", function () {
+        localStorage.removeItem("token");
+        location.href = "/login.html";
+    });
+
+    fetch("/record", {
+        headers: { "Authorization": "Bearer " + token }
+    })
+        .then(function (res) {
+            if (res.status === 401) {
+                localStorage.removeItem("token");
+                location.href = "/login.html";
+                return null;
+            }
+            return res.json();
+        })
+        .then(function (body) {
+            if (!body) return;
+            if(body.code!==200){
+                document.getElementById("tip").textContent=body.msg;
+                return;
+            }
+            render(body.data);
+        });
+    function render(records){
+        var tbody=document.getElementById("list");
+        var tip=document.getElementById("tip");
+        var tbl=document.getElementById("tbl");
+        if(records.length==0){
+            tip.textContent="还没有记录";
+            return;
+        }
+        for(var i=0;i<records.length;i++){
+            var r=records[i];
+            var tr=document.createElement("tr");
+            var td1=document.createElement("td");
+            td1.textContent=r.recordDate;
+            var td2=document.createElement("td");
+            td2.textContent=r.category;
+            var td3=document.createElement("td");
+            td3.textContent=(r.type===1?"-":"+")+Number(r.amount).toFixed(2);
+            td3.className = r.type === 1 ? "out" : "in";
+            var td4 = document.createElement("td");
+            td4.textContent = r.note || "无";
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            tr.appendChild(td3);
+            tr.appendChild(td4);
+            tbody.appendChild(tr);
+        }
+        tip.hidden = true;
+        tbl.hidden = false;
+    }
+
+</script>
+
+</body>
+</html>

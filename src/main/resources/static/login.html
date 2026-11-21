@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>登录</title>
+</head>
+<body>
+<h1>登录</h1>
+<form id="f">
+    <div>
+        <label for="u">用户名</label>
+        <input type="text" id="u">
+    </div>
+    <div>
+        <label for="p">密码</label>
+        <input type="password" id="p">
+    </div>
+    <button type="submit">登录</button>
+</form>
+<p id="msg"></p>
+
+<script>
+    document.getElementById("f").addEventListener("submit",async function (e) {
+        e.preventDefault();
+        var u = document.getElementById("u").value;
+        var p = document.getElementById("p").value;
+        console.log("用户名", u, "密码", p);
+        var res=await fetch("/user/login",{
+            method:"POST",
+            headers:{ "Content-Type": "application/json" },
+            body: JSON.stringify({username: u, password: p})
+        });
+        var body= await res.json();
+        console.log("服务端返回",body);
+        if(body.code==200){
+            localStorage.setItem("token",body.data);
+            location.href= "/index.html";
+        }else{
+            document.getElementById("msg").textContent=body.msg;
+        }
+    });
+</script>
+</body>
+</html>
