@@ -23,7 +23,7 @@ target/
 /nbproject/private/
 /nbbuild/
 /dist/
-/nbdist/
+/nbdist/git push
 /.nb-gradle/
 build/
 !**/src/main/**/build/
@@ -34,3 +34,5 @@ build/
 application
 *.log
 src/main/resources/static/practice.html
+src/test/st.http
+
