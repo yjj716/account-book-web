@@ -20,11 +20,76 @@
 
         .out { color: #c0392b; }
         .in  { color: #1d9e75; }
+        #addForm{max-width:720px;margin-bottom:24px;padding:16px;
+            border:1px solid #ddd;border-radius:8px;background:#fafafa;}
+        #addForm div{margin-bottom:10px;}
+        #addForm label{
+            display:inline-block;
+            width:56px;
+            font-size:14px;
+            color:#555;
+        }
+        #addForm input, #addForm select{
+            padding:6px 8px;
+            border:1px solid #ccc;
+            border-radius:4px;
+            font-size:14px;
+        }
+        #addForm button{
+            padding:8px 20px;
+            border:none;
+            border-radius:6px;
+            background:#185fa5;
+            color:#fff;
+            font-size:14px;
+            cursor:pointer;
+        }
+        #addMsg{
+            color:#a32d2d;
+            font-size:13px;
+            margin-left:10px;
+        }
+
     </style>
 </head>
 <body>
 <h1>我的帐本</h1>
 <button id="logout">退出登录</button>
+<div id="stats" style="max-width:720px;margin:0 0 20px;padding:12px 16px;
+                       background:#f0f6fc;border-left:4px solid #185fa5;border-radius:4px;">
+    <label for="statsMonth" style="font-size:14px;">月份</label>
+    <input type="month" id="statsMonth" style="padding:4px 8px;border:1px solid #ccc;border-radius:4px;">
+    <span id="statsText" style="margin-left:12px;">加载中...</span>
+</div>
+
+<h2>记一笔</h2>
+<form id="addForm">
+    <div>
+        <label>金额</label>
+        <input type="number" id="amount" step="0.01" min="0.01" placeholder="0.00" required>
+    </div>
+    <div>
+        <label>类型</label>
+        <select  id="type">
+            <option value="1">支出</option>
+            <option value="2">收入</option>
+        </select>
+    </div>
+    <div>
+        <label>分类</label>
+        <input type="text" id="category" placeholder="餐饮 / 交通 / 工资" required>
+    </div>
+    <div>
+        <label>日期</label>
+        <input type="date" id="recordDate" required>
+    </div>
+    <div>
+        <label>备注</label>
+        <input type="text" id="note" placeholder="可选">
+    </div>
+    <button type="submit">保存</button>
+    <span id="addMsg"></span>
+</form>
 <p id="tip">加载中...</p>
 <table id="tbl" hidden="">
     <thead>
@@ -33,6 +98,7 @@
         <th>分类</th>
         <th>金额</th>
         <th>备注</th>
+        <th>操作</th>
     </tr>
     </thead>
     <tbody id="list"></tbody>
@@ -76,7 +142,7 @@
             return;
         }
         for(var i=0;i<records.length;i++){
-            var r=records[i];
+            let r=records[i];
             var tr=document.createElement("tr");
             var td1=document.createElement("td");
             td1.textContent=r.recordDate;
@@ -87,15 +153,125 @@
             td3.className = r.type === 1 ? "out" : "in";
             var td4 = document.createElement("td");
             td4.textContent = r.note || "无";
+            var td5 = document.createElement("td");
+            var delBtn = document.createElement("button");
+            delBtn.textContent = "删除";
+            delBtn.style.cssText = "padding:4px 10px;font-size:12px;cursor:pointer;";
+            delBtn.onclick = function () {
+                if (!confirm("确定删除 " + r.category + " " + r.recordDate + " 这条记录？")) {
+                    return;
+                }
+
+                fetch("/record/" + r.id, {
+                    method: "DELETE",
+                    headers: { "Authorization": "Bearer " + token }
+                })
+                    .then(function (res) {
+                        if (res.status === 401) {
+                            localStorage.removeItem("token");
+                            location.href = "/login.html";
+                            return null;
+                        }
+                        return res.json();
+                    })
+                    .then(function (b) {
+                        if (!b) return;
+                        if (b.code === 200) {
+                            location.reload();
+                        } else {
+                            alert(b.msg);
+                        }
+                    });
+            };
+            td5.appendChild(delBtn);
             tr.appendChild(td1);
             tr.appendChild(td2);
             tr.appendChild(td3);
             tr.appendChild(td4);
+            tr.appendChild(td5);
             tbody.appendChild(tr);
         }
         tip.hidden = true;
         tbl.hidden = false;
     }
+document.getElementById("recordDate").valueAsDate=new Date();
+    document.getElementById("addForm").addEventListener("submit",function(e){
+        e.preventDefault();
+        var msg=document.getElementById("addMsg");
+        msg.textContent="";
+
+        var payload = {
+            amount: Number(document.getElementById("amount").value),
+            type: Number(document.getElementById("type").value),
+            category: document.getElementById("category").value,
+            note: document.getElementById("note").value,
+            recordDate: document.getElementById("recordDate").value
+        };
+        if ( !payload.category) {
+            msg.textContent = "分类不能为空";
+            return;
+        }
+        fetch("/record",{
+            method: "POST",
+            headers:{
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(function(res){
+                if(res.status==401){
+                    localStorage.removeItem("token");
+                    location.href="/login.html";
+                    return null;
+                }
+                return res.json();
+            })
+            .then(function(body){
+                if(!body)return;
+                if(body.code===200){
+                    location.reload();
+                }else{
+                    msg.textContent=body.msg;
+                }
+            })
+    })
+    function loadStats(month) {
+        if (!month) {
+            var now = new Date();
+            month = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+        }
+
+        var picker = document.getElementById("statsMonth");
+        picker.value = month;
+
+        fetch("/record/statistics?month=" + month, {
+            headers: { "Authorization": "Bearer " + token }
+        })
+            .then(function (res) {
+                if (res.status === 401) {
+                    localStorage.removeItem("token");
+                    location.href = "/login.html";
+                    return null;
+                }
+                return res.json();
+            })
+            .then(function (body) {
+                if (!body || body.code !== 200) return;
+                var d = body.data;
+                document.getElementById("statsText").innerHTML =
+                    "收入 " + Number(d.income).toFixed(2) +
+                    "　支出 " + Number(d.expense).toFixed(2) +
+                    "　结余 " + Number(d.balance).toFixed(2);
+            });
+    }
+
+    document.getElementById("statsMonth").addEventListener("change", function () {
+        loadStats(this.value);
+    });
+
+    loadStats();
+
 
 </script>
 
